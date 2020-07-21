@@ -4,18 +4,18 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="aio_statsd",
-    version="0.1.3",
+    name="graphite_exporter",
+    version="1.0.0",
     author="so1n",
     author_email="so1n897046026@example.com",
-    description="Simple and fast statsd async client",
+    description="Prometheus Graphite Exporter",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/so1n/aiostatsd",
+    url="https://github.com/so1n/graphite_exporter",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: Apache License",
         "Operating System :: OS Independent",
     ],
 )

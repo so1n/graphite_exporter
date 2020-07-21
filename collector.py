@@ -48,16 +48,18 @@ class Graphite(object):
         target_info_list = target.split('.')
         for label_key, label_value in metric_label_dict.items():
             if '${' in label_value:
-                label_match = re.match('\${\d*}', label_value)
+                label_match = re.findall('\${\d*}', label_value)
                 if not label_match:
                     logging.error(f'name:{name} key:{label_key}'
                                   f' match {label_value} fail')
                     continue
-                raw_label = label_match.group()
-                index = int(raw_label[2:-1])
-                label_dict[label_key] = label_value.replace(
-                    raw_label, target_info_list[index]
-                )
+
+                for label in label_match:
+                    index = int(label[2:-1])
+                    label_value = label_value.replace(
+                        label, target_info_list[index]
+                    )
+                label_dict[label_key] = label_value
             else:
                 label_dict[label_key] = label_value
         return label_dict

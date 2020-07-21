@@ -58,21 +58,26 @@ def main():
         REGISTRY.register(GraphiteMetricCollector(graphite))
         logging.info(f'registry system metric:{system_metric} success')
 
-    if os.path.exists('./' + config_filename_path):
-        logging.info(f'reading custom metric from {config_filename_path}')
-        with open(config_filename_path, 'r') as config_file:
-            custom_metric_config = yaml.load(
-                config_file, Loader=yaml.FullLoader
+    if config_filename_path:
+        if not config_filename_path.startswith('/'):
+            config_filename_path = './' + config_filename_path
+        if os.path.exists(config_filename_path):
+            logging.info(f'reading custom metric from {config_filename_path}')
+            with open(config_filename_path, 'r') as config_file:
+                custom_metric_config = yaml.load(
+                    config_file, Loader=yaml.FullLoader
+                )
+            graphite.init_custom_metric(custom_metric_config)
+            custom_metric_collector = CustomMetricCollector(
+                custom_metric_config, graphite
             )
-        graphite.init_custom_metric(custom_metric_config)
-        custom_metric_collector = CustomMetricCollector(
-            custom_metric_config, graphite
-        )
-        REGISTRY.register(custom_metric_collector)
+            REGISTRY.register(custom_metric_collector)
 
-        scheduler = BackgroundScheduler()
-        for job, interval, name in graphite.gen_job(custom_metric_config):
-            scheduler.add_job(job, 'interval', seconds=interval, name=name)
-        logging.getLogger('apscheduler.executors.default').setLevel(
-            getattr(logging, apscheduler_log_level))
-        scheduler.start()
+            scheduler = BackgroundScheduler()
+            for job, interval, name in graphite.gen_job(custom_metric_config):
+                scheduler.add_job(job, 'interval', seconds=interval, name=name)
+            logging.getLogger('apscheduler.executors.default').setLevel(
+                getattr(logging, apscheduler_log_level))
+            scheduler.start()
+        else:
+            logging.error(f'reading custom metric from {config_filename_path}')

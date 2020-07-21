@@ -8,7 +8,8 @@ pip install graphite_exporter
 ### How to run
 can use `python -m` after install graphite_exporter
 ```bash
-python3 -m graphite_exporter -h
+>> python3 -m graphite_exporter -h
+
 usage: __main__.py [-h] [-i IP] [-c CONFIG] [-p PORT] [-P LISTEN_PORT]
                    [-l LOG_LEVEL] [-L APSCHEDULER_LOG_LEVEL]
                    [--system_metric SYSTEM_METRIC]
@@ -38,7 +39,7 @@ An example configuration:
 ```yaml
 # base param
 global:
-  prefix: graphite      # metric prefix
+  prefix: graphite      # prometheus metric prefix
   interval: 1m          # collection data interval
   from: -1min           # graphite web requests param. learn more: https://graphite.readthedocs.io/en/latest/render_api.html#from-until
   until: now            # graphite web requests param. learn more: https://graphite.readthedocs.io/en/latest/render_api.html#from-until
@@ -61,7 +62,7 @@ metrics:
   - metric: example.*.app1.dau
     name: dau
     doc: dau
-    # No basic parameters are set, 
+    # No base parameters are set, 
     # this metric base param will auto set from global base param
     labels:
       service_project: ${0}-${2}  # service_project: ${0}-${2} -> {service_project='example-app1'}    
@@ -72,6 +73,6 @@ metrics:
     name: dau
     doc: dau
     labels:
-      metric: ${0}    # metric only be one value: dau
+      metric: dau    # metric only be one value: dau
 
 ```

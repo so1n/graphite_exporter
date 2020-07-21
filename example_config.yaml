@@ -1,0 +1,29 @@
+global:
+  prefix: graphite
+  interval: 1m
+  from: -1min
+  until: now
+  timeout: 10
+
+metrics:
+  - metric: example.*.*.user
+    name: user_cnt
+    doc: user cnt
+    labels:
+      service: ${0}
+      app: ${1}
+      project: ${2}
+
+  - metric: example.*.*.dau
+    name: dau
+    doc: dau
+    labels:
+      service_projece: ${0}-${2}
+      app: ${1}
+      project: ${2}
+
+  - metric: aliasByMetric(example.*.*.dau)  # graphite return metric name: dau
+    name: dau
+    doc: dau
+    labels:
+      metric: ${0}

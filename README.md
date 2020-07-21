@@ -1,134 +1,77 @@
-## aiostasd
-an asyncio-based client for send metric to `StatsD`, `Graphite.carbon` and `DogStatsD`.
-
+## graphite_exporter
+Prometheus Graphite Exporter
 ## Installation
 ```Bash
-pip install aiostatsd
+pip install graphite_exporter
 ```
 ## Usage
-### Usage Client
-Create connection and send gauge metric.
-aiostatsd client will automatically send messages in the background when the loop is running
-```Python
-import asyncio
-from aio_statsd import StatsdClient
+### How to run
+can use `python -m` after install graphite_exporter
+```bash
+python3 -m graphite_exporter -h
+usage: __main__.py [-h] [-i IP] [-c CONFIG] [-p PORT] [-P LISTEN_PORT]
+                   [-l LOG_LEVEL] [-L APSCHEDULER_LOG_LEVEL]
+                   [--system_metric SYSTEM_METRIC]
 
-
-loop = asyncio.get_event_loop()
-client = StatsdClient()
-loop.run_until_complete(client.connect())
-client.gauge('test.key', 1)
-loop.run_forever()
+optional arguments:
+  -h, --help            show this help message and exit
+  -i IP, --ip IP        graphite web ip
+  -c CONFIG, --config CONFIG
+                        Metric config path
+  -p PORT, --port PORT  graphite web port
+  -P LISTEN_PORT, --listen_port LISTEN_PORT
+                        graphite exporter listen port
+  -l LOG_LEVEL, --log_level LOG_LEVEL
+                        log level
+  -L APSCHEDULER_LOG_LEVEL, --apscheduler_log_level APSCHEDULER_LOG_LEVEL
+                        apscheduler log level, default warning
+  --system_metric SYSTEM_METRIC
+                        Select the system metric to use. System Metric: carbon
+                        _update_operations,carbon_metrics_received,carbon_comm
+                        itted_points,carbon_points_per_update,carbon_cpu_usage
+                        ,carbon_creates
 ```
-Create Connection Pool and use
-`max_size=5:` The maximum number of connections in the connection pool
-```Python
-import asyncio
-from aio_statsd import StatsdClient
+### Custom Metric and Config
+The `graphite_exporter` can be configured to translate specific dot-separated graphite metrics into labeled Prometheus metrics via YAML configuration file. 
 
+An example configuration:
+```yaml
+# base param
+global:
+  prefix: graphite      # metric prefix
+  interval: 1m          # collection data interval
+  from: -1min           # graphite web requests param. learn more: https://graphite.readthedocs.io/en/latest/render_api.html#from-until
+  until: now            # graphite web requests param. learn more: https://graphite.readthedocs.io/en/latest/render_api.html#from-until
+  timeout: 10           # requests timeout
 
-loop = asyncio.get_event_loop()
-client = StatsdClient()
-loop.run_until_complete(client.create_pool(max_size=5))
-client.gauge('test.key', 1)
-loop.run_forever()
+metrics:
+  - metric: example.*.*.user    # graphite metric
+    name: user_cnt              # prometheus metric name
+    doc: user cnt               # prometheus metric doc 
+    prefix: gaphite1
+    interval: 2m
+    from: -10min
+    until: now
+    timeout: 20
+    labels:                     # prometheus metric tag info:
+      service: ${0}             #   service: ${0}  -> {service='example'}
+      app: ${1}
+      project: ${2}
+
+  - metric: example.*.app1.dau
+    name: dau
+    doc: dau
+    # No basic parameters are set, 
+    # this metric base param will auto set from global base param
+    labels:
+      service_project: ${0}-${2}  # service_project: ${0}-${2} -> {service_project='example-app1'}    
+      app: ${1}
+      project: ${2}
+
+  - metric: aliasByMetric(example.*.*.dau)  # graphite return metric name: dau
+    name: dau
+    doc: dau
+    labels:
+      metric: ${0}    # metric only be one value: dau
+
 ```
-Use context manager(Now, not support connection pool)
-```Python
-import asyncio
-from aio_statsd import StatsdClient
-
-
-async def main():
-    async with StatsdClient() as client:
-        client.gauge('test.key', 1)
-
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
-```
-### Client param
-- host: default value 'localhost', Statsd Server ip
-- port: default value 8125, Statsd Server port
-- protocol: default value ProtocolFlag.udp, Transport Layer Prrotocol, Select Tcp:`ProtocolFlag.udp` or Udp:`ProtocolFlag.tcp` 
-- timeout: default value 0, send msg timeout, if timeout==0, not enable timeout
-- debug: default value False, enable debug
-- close_timeout: default value 5, Within a few seconds after the client is closed, continue to send messages which in the queue
-- create_timeout: default value 5, Createe connection timeout
-- read_timeout: default value 0.5, read messages from queue timeout
-- sample_rate(Use in StatsD Client, DogStatsD Client): default value 1, use sample rate in Statsd or DogStatsD
-### send metric
-```Python
-import asyncio
-from aio_statsd import StatsdClient
-
-
-async def main():
-    async with StatsdClient() as client:
-        client.gauge('test.key', 1)
-        client.counter('test.key', 1)
-        client.sets('test.key', 1)
-        client.timer('test.key', 1)
-        with client.timeit('test'):
-            pass  # run your code
-        
-        # all metric support sample rate
-        client.gauge('test1.key', 1, sample_rate=0.5)
-        
-        # mutli metric support(not support sample rate, the sample rate will always be set to 1)
-        from aio_statsd import StatsdProtocol
-        metric = StatsdProtocol()   
-        metric.gauge('test2.key', 1)
-        metric.sets('test2.key', 1)
-        client.send_statsd(metric)     
-
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
-```
-### Other Client
-#### Graphite(carbon)
-```python
-import asyncio
-from aio_statsd import GraphiteClient
-
-
-loop = asyncio.get_event_loop()
-client = GraphiteClient()
-loop.run_until_complete(client.connect())
-client.send_graphite('test.key', 1) # Multiple clients timestamp interval synchronization
-loop.run_forever()
-```
-#### DogStatsD
->Note: Not tested in production
-```python
-import asyncio
-from aio_statsd import DogStatsdClient
-
-
-async def main():
-    async with DogStatsdClient() as client:
-        client.gauge('test.key', 1)
-        client.distribution('test.key', 1)
-        client.increment('test.key',1)
-        client.histogram('test.key', 1)
-        client.timer('test.key', 1)
-        with client.timeit('test'):
-            pass  # run your code
-        
-        # all metric support sample rate and DogStatsD tag
-        client.gauge('test1.key', 1, sample_rate=0.5, tag_dict={'tag': 'tag1'})
-        
-        # mutli metric support(
-        #   DogStatsdProtocol will store the message in its own queue and
-        #   DogStatsDClient traverses to read DogStatsdProtocol's message and send it
-        # )
-        from aio_statsd import DogStatsdProtocol
-        metric = DogStatsdProtocol()   
-        metric.gauge('test2.key', 1, tag_dict={'tag': 'tag1'})
-        metric.histogram('test2.key', 1)
-        client.send_dog_statsd(metric, sample_rate=0.5)
-
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
-```
-### Use in web frameworks
-[fastapi example](https://github.com/so1n/fastapi-tools/blob/master/example/statsd_middleware.py)

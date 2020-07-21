@@ -2,7 +2,6 @@ APScheduler==3.6.3
 certifi==2019.11.28
 chardet==3.0.4
 idna==2.9
-pkg-resources==0.0.0
 prometheus-client==0.7.1
 pytz==2019.3
 PyYAML==5.3.1

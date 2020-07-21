@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="graphite_exporter",
-    version="1.0.0",
+    version="1.1.0",
     author="so1n",
     author_email="so1n897046026@example.com",
     description="Prometheus Graphite Exporter",

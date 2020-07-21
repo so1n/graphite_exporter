@@ -12,11 +12,11 @@ can use `python -m` after install graphite_exporter
 
 usage: __main__.py [-h] [-i IP] [-c CONFIG] [-p PORT] [-P LISTEN_PORT]
                    [-l LOG_LEVEL] [-L APSCHEDULER_LOG_LEVEL]
-                   [--system_metric SYSTEM_METRIC]
+                   [-s SYSTEM_METRIC]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -i IP, --ip IP        graphite web ip
+  -i IP, --ip IP        graphite web ip. eg: 127.0.0.1 or 127.0.0.1,127.0.0.2
   -c CONFIG, --config CONFIG
                         Metric config path
   -p PORT, --port PORT  graphite web port
@@ -26,7 +26,7 @@ optional arguments:
                         log level
   -L APSCHEDULER_LOG_LEVEL, --apscheduler_log_level APSCHEDULER_LOG_LEVEL
                         apscheduler log level, default warning
-  --system_metric SYSTEM_METRIC
+  -s SYSTEM_METRIC, --system_metric SYSTEM_METRIC
                         Select the system metric to use. System Metric: carbon
                         _update_operations,carbon_metrics_received,carbon_comm
                         itted_points,carbon_points_per_update,carbon_cpu_usage

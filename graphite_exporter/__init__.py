@@ -18,7 +18,10 @@ from .utils import graphite_config_dict
 @shutdown()
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--ip", default='127.0.0.1', help="graphite web ip")
+    parser.add_argument(
+        "-i", "--ip", default='127.0.0.1',
+        help="graphite web ip. eg: 127.0.0.1 or 127.0.0.1,127.0.0.2"
+    )
     parser.add_argument("-c", "--config", default='', help="Metric config path")
     parser.add_argument("-p", "--port", default=5000, help="graphite web port")
     parser.add_argument("-P", "--listen_port", default=9108, help="graphite exporter listen port")
@@ -28,13 +31,13 @@ def main():
         help="apscheduler log level, default warning"
     )
     parser.add_argument(
-        "--system_metric",
+        "-s", "--system_metric",
         default=','.join(graphite_config_dict['metrics'].keys()),
         help=f"Select the system metric to use. System Metric: {','.join(graphite_config_dict['metrics'].keys())}"
     )
 
     args, unknown = parser.parse_known_args()
-    ip_str: str = args.ip
+    ip_list: str = args.ip.split(',')
     port: int = int(args.port)
     listen_port: int = int(args.listen_port)
     config_filename_path: str = args.config
@@ -47,7 +50,7 @@ def main():
         datefmt='%y-%m-%d %H:%M:%S',
         level=getattr(logging, log_level.upper()))
 
-    graphite = Graphite(f'http://{ip_str}:{port}')
+    graphite = Graphite(ip_list, port)
     logging.info('Starting server...')
     start_http_server(listen_port)
     logging.info(f'Server started on port {listen_port}')

@@ -1,4 +1,5 @@
 import logging
+import random
 import re
 from functools import partial
 
@@ -10,36 +11,40 @@ from .utils import graphite_config_dict
 
 
 class Graphite(object):
-    def __init__(self, host):
-        self.host = host
+    def __init__(self, ip, port):
+        self._ip = ip
+        self._port = port
         self._url_dict = {}
         self.custom_metric_dict = {}
         self.session = requests.session()
-        self.graphite_metric_url = None
+        self.graphite_metric_url_path = None
+
+    def gen_host(self):
+        return f'http://{random.choice(self._ip)}:{self._port}'
 
     def init_monitor_graphite_metric(self, allowed_metric_set):
         global_config = graphite_config_dict['global']
         base_url = (
-            f"{self.host}/render?format=json&from={global_config['from']}"
+            f"/render?format=json&from={global_config['from']}"
             f"&until={global_config['until']}"
         )
         for name, metric_dict in graphite_config_dict['metrics'].items():
             if name not in allowed_metric_set:
                 continue
             base_url += f'&target={metric_dict["metric"]}'
-        self.graphite_metric_url = base_url
+        self.graphite_metric_url_path = base_url
 
     def init_custom_metric(self, config):
         global_config = config['global']
-        base_url = f"{self.host}/render?format=json"
+        base_url_path = f"/render?format=json"
         for metric_dict in config['metrics']:
             name = metric_dict['name']
             metric = metric_dict["metric"]
             _from = metric_dict.get('from', global_config['from'])
             until = metric_dict.get('until', global_config['until'])
-            url = base_url + f'&from={_from}&until={until}&target={metric}'
-            logging.info(f'gen graphite metric. name:{name} url:{url}')
-            self._url_dict[name] = url
+            url_path = base_url_path + f'&from={_from}&until={until}&target={metric}'
+            logging.info(f'gen custom metric. name:{name} url:{url_path}')
+            self._url_dict[name] = url_path
             self.custom_metric_dict[name] = {}
 
     @staticmethod
@@ -91,7 +96,9 @@ class Graphite(object):
         i = 0
         while True:
             i += 1
-            resp = self.session.get(self.graphite_metric_url)
+            resp = self.session.get(
+                self.gen_host() + self.graphite_metric_url_path
+            )
             if resp.ok:
                 break
             elif resp.ok and i > 3:
@@ -111,7 +118,7 @@ class Graphite(object):
 
     def get_metric(self, metric_config_dict):
         name = metric_config_dict['name']
-        url = self._url_dict[name]
+        url = self.gen_host() + self._url_dict[name]
         resp = self.session.get(url)
         if not resp.ok:
             logging.error(

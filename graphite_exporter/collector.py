@@ -132,24 +132,23 @@ class Graphite(object):
             # TODO value为空的处理
             if value is None:
                 continue
-            if target in self.custom_metric_dict[name]:
-                self.custom_metric_dict[name][target][value] = value
-            else:
-                key_list = []
-                value_list = []
-                for label_key, label_value in self.label_handle(
-                        name,
-                        target,
-                        metric_config_dict['labels']
-                ).items():
-                    key_list.append(label_key)
-                    value_list.append(label_value)
-                self.custom_metric_dict[name][target] = {
-                    'value': value,
-                    'label_key_list': key_list,
-                    'label_value_list': value_list,
-                    'doc': metric_config_dict['doc']
-                }
+
+            self.custom_metric_dict[name] = {}
+            key_list = []
+            value_list = []
+            for label_key, label_value in self.label_handle(
+                    name,
+                    target,
+                    metric_config_dict['labels']
+            ).items():
+                key_list.append(label_key)
+                value_list.append(label_value)
+            self.custom_metric_dict[name][target] = {
+                'value': value,
+                'label_key_list': key_list,
+                'label_value_list': value_list,
+                'doc': metric_config_dict['doc']
+            }
 
 
 class GraphiteMetricCollector(object):

@@ -1,8 +1,9 @@
 import argparse
 import logging
 import os
-
 import yaml
+from logging.handlers import SysLogHandler
+from typing import Any, Dict
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from prometheus_client.exposition import start_http_server
@@ -35,6 +36,16 @@ def main():
         default=','.join(graphite_config_dict['metrics'].keys()),
         help=f"Select the system metric to use. System Metric: {','.join(graphite_config_dict['metrics'].keys())}"
     )
+    parser.add_argument(
+        "--syslog_address",
+        help="syslog address, enable syslog handle when value is not empty, "
+             "If you want to send to the local, the value is '/dev/log'"
+    )
+    parser.add_argument(
+        "--syslog_facility",
+        help="syslog facility, can only be used when syslog is enabled",
+        choices=SysLogHandler.facility_names.keys()
+    )
 
     args, unknown = parser.parse_known_args()
     ip_list: str = args.ip.split(',')
@@ -44,11 +55,24 @@ def main():
     log_level: str = args.log_level
     apscheduler_log_level: str = args.apscheduler_log_level
     system_metric: list = args.system_metric.split(',')
+    syslog_address: str = args.syslog_address
 
-    logging.basicConfig(
+    basic_config: Dict[str, Any] = dict(
         format='[%(asctime)s %(levelname)s %(process)d] %(message)s',
         datefmt='%y-%m-%d %H:%M:%S',
-        level=getattr(logging, log_level.upper()))
+        level=getattr(logging, log_level.upper(), 'INFO'),
+    )
+
+    if syslog_address:
+        syslog_facility: int = SysLogHandler.facility_names.get(args.syslog_facility, 'user')
+        basic_config.update(
+            dict(
+                handlers=[SysLogHandler(address=syslog_address, facility=syslog_facility)],
+                format='%(levelname)s elasticsearch_exporter %(message)s',
+            )
+        )
+        del basic_config['datefmt']
+    logging.basicConfig(**basic_config)
 
     graphite = Graphite(ip_list, port)
     logging.info('Starting server...')

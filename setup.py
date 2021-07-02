@@ -8,9 +8,9 @@ with open('requirements.txt') as f:
 
 setuptools.setup(
     name="graphite_exporter",
-    version="1.2.0",
+    version="1.2.1",
     author="so1n",
-    author_email="so1n897046026@example.com",
+    author_email="so1n897046026@gmail.com",
     description="Prometheus Graphite Exporter",
     install_requires=requirements,
     long_description=long_description,

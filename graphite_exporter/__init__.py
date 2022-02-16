@@ -4,7 +4,7 @@ import os
 from logging.handlers import SysLogHandler
 from typing import Any, Dict, List
 
-import yaml
+import yaml  # type: ignore
 from apscheduler.schedulers.background import BackgroundScheduler
 from prometheus_client.core import REGISTRY
 from prometheus_client.exposition import start_http_server
@@ -24,9 +24,7 @@ def main() -> None:
     )
     parser.add_argument("-c", "--config", default="", help="Metric config path")
     parser.add_argument("-p", "--port", default=5000, help="graphite web port")
-    parser.add_argument(
-        "-P", "--listen_port", default=9108, help="graphite exporter listen port"
-    )
+    parser.add_argument("-P", "--listen_port", default=9108, help="graphite exporter listen port")
     parser.add_argument("-l", "--log_level", default="INFO", help="log level")
     parser.add_argument(
         "-L",
@@ -68,14 +66,10 @@ def main() -> None:
     )
 
     if syslog_address:
-        syslog_facility: int = SysLogHandler.facility_names.get(
-            args.syslog_facility, SysLogHandler.LOG_USER
-        )
+        syslog_facility: int = SysLogHandler.facility_names.get(args.syslog_facility, SysLogHandler.LOG_USER)
         basic_config.update(
             dict(
-                handlers=[
-                    SysLogHandler(address=syslog_address, facility=syslog_facility)
-                ],
+                handlers=[SysLogHandler(address=syslog_address, facility=syslog_facility)],
                 format="%(levelname)s elasticsearch_exporter %(message)s",
             )
         )
@@ -94,26 +88,20 @@ def main() -> None:
         logging.info(f"registry system metric:{system_metric} success")
 
     if config_filename_path:
+        # Don't need to think about Windows
         if not config_filename_path.startswith("/"):
             config_filename_path = "./" + config_filename_path
         if os.path.exists(config_filename_path):
             logging.info(f"reading custom metric from {config_filename_path}")
             with open(config_filename_path, "r") as config_file:
-                custom_metric_config: dict = yaml.load(
-                    config_file, Loader=yaml.FullLoader
-                )
+                custom_metric_config: dict = yaml.load(config_file, Loader=yaml.FullLoader)
             graphite.init_custom_metric(custom_metric_config)
-            custom_metric_collector: CustomMetricCollector = CustomMetricCollector(
-                custom_metric_config, graphite
-            )
-            REGISTRY.register(custom_metric_collector)
+            REGISTRY.register(CustomMetricCollector(custom_metric_config, graphite))
 
             scheduler: BackgroundScheduler = BackgroundScheduler()
             for job, interval, name in graphite.gen_job(custom_metric_config):
                 scheduler.add_job(job, "interval", seconds=interval, name=name)
-            logging.getLogger("apscheduler.executors.default").setLevel(
-                getattr(logging, apscheduler_log_level)
-            )
+            logging.getLogger("apscheduler.executors.default").setLevel(getattr(logging, apscheduler_log_level))
             scheduler.start()
         else:
             logging.error(f"reading custom metric from {config_filename_path}")

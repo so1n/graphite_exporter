@@ -33,7 +33,7 @@ optional arguments:
                         ,carbon_creates
 ```
 ### Custom Metric and Config
-The `graphite_exporter` can be configured to translate specific dot-separated graphite metrics into labeled Prometheus metrics via YAML configuration file. 
+The `graphite_exporter` can be configured to translate specific dot-separated graphite metrics into labeled Prometheus metrics via YAML configuration file.
 
 An example configuration:
 ```yaml
@@ -48,7 +48,7 @@ global:
 metrics:
   - metric: example.*.*.user    # graphite metric
     name: user_cnt              # prometheus metric name
-    doc: user cnt               # prometheus metric doc 
+    doc: user cnt               # prometheus metric doc
     prefix: gaphite1
     interval: 2m
     from: -10min
@@ -62,10 +62,10 @@ metrics:
   - metric: example.*.app1.dau
     name: dau
     doc: dau
-    # No base parameters are set, 
+    # No base parameters are set,
     # this metric base param will auto set from global base param
     labels:
-      service_project: ${0}-${2}  # service_project: ${0}-${2} -> {service_project='example-app1'}    
+      service_project: ${0}-${2}  # service_project: ${0}-${2} -> {service_project='example-app1'}
       app: ${1}
       project: ${2}
 

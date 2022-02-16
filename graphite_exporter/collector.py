@@ -4,7 +4,7 @@ import re
 from functools import partial
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
-import requests
+import requests  # type: ignore
 from prometheus_client.core import GaugeMetricFamily
 
 from .utils import graphite_config_dict
@@ -33,15 +33,13 @@ class Graphite(object):
 
     def init_custom_metric(self, config: dict) -> None:
         global_config: dict = config["global"]
-        base_url_path: str = f"/render?format=json"
+        base_url_path: str = "/render?format=json"
         for metric_dict in config["metrics"]:
             name: str = metric_dict["name"]
             metric: str = metric_dict["metric"]
             _from: str = metric_dict.get("from", global_config["from"])
             until: str = metric_dict.get("until", global_config["until"])
-            url_path: str = (
-                base_url_path + f"&from={_from}&until={until}&target={metric}"
-            )
+            url_path: str = base_url_path + f"&from={_from}&until={until}&target={metric}"
             logging.info(f"gen custom metric. name:{name} url:{url_path}")
             self._url_dict[name] = url_path
             self.custom_metric_dict[name] = {}
@@ -52,11 +50,9 @@ class Graphite(object):
         target_info_list: List[str] = target.split(".")
         for label_key, label_value in metric_label_dict.items():
             if "${" in label_value:
-                label_match: List[str] = re.findall("\${\d*}", label_value)
+                label_match: List[str] = re.findall(r"\${\d*}", label_value)
                 if not label_match:
-                    logging.error(
-                        f"name:{name} key:{label_key} match {label_value} fail"
-                    )
+                    logging.error(f"name:{name} key:{label_key} match {label_value} fail")
                     continue
 
                 for label in label_match:
@@ -69,9 +65,7 @@ class Graphite(object):
 
     def gen_job(self, config: Dict[str, Any]) -> Generator[Tuple, Any, Any]:
         for metric_config_dict in config["metrics"]:
-            _interval: str = metric_config_dict.get(
-                "interval", config["global"]["interval"]
-            )
+            _interval: str = metric_config_dict.get("interval", config["global"]["interval"])
             try:
                 interval: int = int(_interval)
             except Exception:
@@ -93,15 +87,11 @@ class Graphite(object):
         i: int = 0
         while True:
             i += 1
-            resp: requests.Response = self.session.get(
-                self.gen_host() + self.graphite_metric_url_path
-            )
+            resp: requests.Response = self.session.get(self.gen_host() + self.graphite_metric_url_path)
             if resp.ok:
                 break
             elif resp.ok and i > 3:
-                logging.error(
-                    f"can't access graphite, status:{resp.status_code} content:{resp.text}"
-                )
+                logging.error(f"can't access graphite, status:{resp.status_code} content:{resp.text}")
                 raise StopIteration()
         for target_dict in resp.json():
             target: str = target_dict["target"]
@@ -130,9 +120,7 @@ class Graphite(object):
             self.custom_metric_dict[name] = {}
             key_list: List[str] = []
             value_list: List[int] = []
-            for label_key, label_value in self.label_handle(
-                name, target, metric_config_dict["labels"]
-            ).items():
+            for label_key, label_value in self.label_handle(name, target, metric_config_dict["labels"]).items():
                 key_list.append(label_key)
                 value_list.append(label_value)
             self.custom_metric_dict[name][target] = {

@@ -37,9 +37,7 @@ graphite_config_dict: dict = {
 }
 
 
-def shutdown(
-    shutdown_signals: Tuple[signal.Signals, ...] = (signal.SIGINT, signal.SIGTERM)
-) -> Callable:
+def shutdown(shutdown_signals: Tuple[signal.Signals, ...] = (signal.SIGINT, signal.SIGTERM)) -> Callable:
     def sig_handler(signum: int, _: Any) -> None:
         logging.info(f"Received signal:{signal.Signals(signum).name}")
         sys.exit()

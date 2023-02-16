@@ -118,6 +118,7 @@ class Graphite(object):
 
     def get_metric(self, metric_config_dict):
         name = metric_config_dict['name']
+        self.custom_metric_dict[name] = {}
         url = self.gen_host() + self._url_dict[name]
         resp = self.session.get(url)
         if not resp.ok:
@@ -133,7 +134,6 @@ class Graphite(object):
             if value is None:
                 continue
 
-            self.custom_metric_dict[name] = {}
             key_list = []
             value_list = []
             for label_key, label_value in self.label_handle(

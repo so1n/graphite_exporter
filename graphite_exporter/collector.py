@@ -1,35 +1,47 @@
 import logging
 import random
 import re
+from copy import deepcopy
 from functools import partial
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 
 import requests  # type: ignore
 from prometheus_client.core import GaugeMetricFamily
+from requests.adapters import HTTPAdapter  # type: ignore
 
+from .types import GraphiteResponseType
 from .utils import graphite_config_dict
 
 
 class Graphite(object):
-    def __init__(self, ip_list: List[str], port: int) -> None:
+    def __init__(
+        self,
+        *,
+        ip_list: List[str],
+        port: int,
+        pool_connections: int,
+        pool_maxsize: int,
+        max_retries: int,
+        pool_block: bool,
+        timeout: int,
+    ) -> None:
         self._ip_list: List[str] = ip_list
         self._port: int = port
         self._url_dict: Dict[str, str] = {}
         self.custom_metric_dict: dict = {}
+        http_adapter: HTTPAdapter = HTTPAdapter(
+            pool_connections=pool_connections,
+            pool_maxsize=pool_maxsize,
+            max_retries=max_retries,
+            pool_block=pool_block,
+        )
         self.session: requests.Session = requests.session()
-        self.graphite_metric_url_path: str = ""
+        self.session.mount("http://", http_adapter)
+        self.session.mount("https://", http_adapter)
+        setattr(self.session, "request", partial(self.session.request, timeout=timeout))
 
     def gen_host(self) -> str:
         return f"http://{random.choice(self._ip_list)}:{self._port}"
-
-    def init_monitor_graphite_metric(self, allowed_metric_set: Set[str]) -> None:
-        global_config: Dict[str, Any] = graphite_config_dict["global"]
-        base_url: str = f"/render?format=json&from={global_config['from']}&until={global_config['until']}"
-        for name, metric_dict in graphite_config_dict["metrics"].items():
-            if name not in allowed_metric_set:
-                continue
-            base_url += f'&target={metric_dict["metric"]}'
-        self.graphite_metric_url_path = base_url
 
     def init_custom_metric(self, config: dict) -> None:
         global_config: dict = config["global"]
@@ -83,25 +95,6 @@ class Graphite(object):
                 metric_config_dict["name"],
             )
 
-    def get_graphite_metric(self) -> Generator[dict, Any, Any]:
-        i: int = 0
-        while True:
-            i += 1
-            resp: requests.Response = self.session.get(self.gen_host() + self.graphite_metric_url_path)
-            if resp.ok:
-                break
-            elif resp.ok and i > 3:
-                logging.error(f"can't access graphite, status:{resp.status_code} content:{resp.text}")
-                raise StopIteration()
-        for target_dict in resp.json():
-            target: str = target_dict["target"]
-            last_datapoint: Tuple[int, int] = target_dict["datapoints"][-1]
-            value, timestamp = last_datapoint
-            metric_dict: dict = graphite_config_dict["metrics"][target]
-            metric_dict["value"] = value
-            metric_dict["name"] = target
-            yield metric_dict
-
     def get_metric(self, metric_config_dict: dict) -> None:
         name: str = metric_config_dict["name"]
         url: str = self.gen_host() + self._url_dict[name]
@@ -132,12 +125,35 @@ class Graphite(object):
 
 
 class GraphiteMetricCollector(object):
-    def __init__(self, graphite: Graphite):
+    """Collect graphite system metrics"""
+
+    def __init__(self, graphite: Graphite, allowed_metric_set: Set[str]):
         self.prefix: str = graphite_config_dict["global"].get("prefix", "graphite")
         self.graphite: Graphite = graphite
 
+        global_config: Dict[str, Any] = graphite_config_dict["global"]
+        base_url: str = f"/render?format=json&from={global_config['from']}&until={global_config['until']}"
+        for name, metric_dict in graphite_config_dict["metrics"].items():
+            if name not in allowed_metric_set:
+                continue
+            base_url += f'&target={metric_dict["metric"]}'
+        self.graphite_metric_url_path = base_url
+
+    def get_graphite_metric(self) -> Generator[dict, Any, Any]:
+        resp: requests.Response = self.graphite.session.get(self.graphite.gen_host() + self.graphite_metric_url_path)
+        if not resp.ok:
+            logging.error(f"can't access graphite, status:{resp.status_code} content:{resp.text}")
+            raise StopIteration()
+        resp_result: GraphiteResponseType = resp.json()
+        for target_dict in resp_result:
+            target: str = target_dict["target"]
+            metric_dict: dict = deepcopy(graphite_config_dict["metrics"][target])
+            metric_dict["value"] = target_dict["datapoints"][-1][0]  # Only the last one is needed
+            metric_dict["name"] = target
+            yield metric_dict
+
     def collect(self) -> GaugeMetricFamily:
-        for metric_dict in self.graphite.get_graphite_metric():
+        for metric_dict in self.get_graphite_metric():
             g: GaugeMetricFamily = GaugeMetricFamily(
                 self.prefix + "_" + metric_dict["name"],
                 metric_dict["doc"],

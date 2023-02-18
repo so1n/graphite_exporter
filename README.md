@@ -12,7 +12,13 @@ can use `python -m` after install graphite_exporter
 
 usage: __main__.py [-h] [-i IP] [-c CONFIG] [-p PORT] [-P LISTEN_PORT]
                    [-l LOG_LEVEL] [-L APSCHEDULER_LOG_LEVEL]
-                   [-s SYSTEM_METRIC]
+                   [-s SYSTEM_METRIC] [--syslog_address SYSLOG_ADDRESS]
+                   [--syslog_facility {auth,authpriv,cron,daemon,ftp,kern,lpr,mail,news,security,syslog,user,uucp,local0,local1,local2,local3,local4,local5,local6,local7}]
+                   [--request_pool_connections REQUEST_POOL_CONNECTIONS]
+                   [--request_pool_maxsize REQUEST_POOL_MAXSIZE]
+                   [--request_max_retries REQUEST_MAX_RETRIES]
+                   [--request_pool_block REQUEST_POOL_BLOCK]
+                   [--request_timeout REQUEST_TIMEOUT]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -30,7 +36,25 @@ optional arguments:
                         Select the system metric to use. System Metric: carbon
                         _update_operations,carbon_metrics_received,carbon_comm
                         itted_points,carbon_points_per_update,carbon_cpu_usage
-                        ,carbon_creates
+                        ,carbon_creates.The default is Select All
+  --syslog_address SYSLOG_ADDRESS
+                        syslog address, enable syslog handle when value is not
+                        empty, If you want to send to the local, the value is
+                        '/dev/log'
+  --syslog_facility {auth,authpriv,cron,daemon,ftp,kern,lpr,mail,news,security,syslog,user,uucp,local0,local1,local2,local3,local4,local5,local6,local7}
+                        syslog facility, can only be used when syslog is
+                        enabled
+  --request_pool_connections REQUEST_POOL_CONNECTIONS
+                        init connections for the requests pool, default is 10
+  --request_pool_maxsize REQUEST_POOL_MAXSIZE
+                        max size for the requests pool, default is 10
+  --request_max_retries REQUEST_MAX_RETRIES
+                        max retries for the request, default is 3
+  --request_pool_block REQUEST_POOL_BLOCK
+                        whether to block the request when pool is full,
+                        default is False
+  --request_timeout REQUEST_TIMEOUT
+                        timeout of request in seconds, default is 9
 ```
 ### Custom Metric and Config
 The `graphite_exporter` can be configured to translate specific dot-separated graphite metrics into labeled Prometheus metrics via YAML configuration file.

@@ -1,11 +1,10 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from typing_extensions import TypedDict
 
 
 class GraphiteResponseItemTagTypedDict(TypedDict):
     name: str
-    aggregatedBy: str
 
 
 class GraphiteResponseItemTypedDict(TypedDict):
@@ -30,3 +29,41 @@ class GraphiteResponseItemTypedDict(TypedDict):
 #     },
 # ]
 GraphiteResponseType = List[GraphiteResponseItemTypedDict]
+
+
+class MetricTypedDict(TypedDict):
+    doc: str
+    name: str
+    metric: str
+    value: Union[int, float]
+
+
+GlobalConfigTypedDict = TypedDict(
+    "GlobalConfigTypedDict",
+    {
+        "prefix": str,
+        "interval": str,
+        "from": str,
+        "until": str,
+        "timeout": int,
+    },
+)
+
+MetricConfigTypedDict = TypedDict(
+    "MetricConfigTypedDict",
+    {
+        "prefix": str,
+        "interval": str,
+        "from": str,
+        "until": str,
+        "timeout": int,
+        "metric": str,
+        "doc": str,
+        "name": str,
+        "labels": dict,
+    },
+)
+
+ConfigTypedDict = TypedDict(
+    "ConfigTypedDict", {"global": GlobalConfigTypedDict, "metrics": List[MetricConfigTypedDict]}
+)

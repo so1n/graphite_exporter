@@ -11,6 +11,7 @@ from prometheus_client.exposition import start_http_server
 from requests.adapters import DEFAULT_POOL_TIMEOUT, DEFAULT_POOLBLOCK, DEFAULT_POOLSIZE  # type: ignore
 
 from .collector import CustomMetricCollector, Graphite, GraphiteMetricCollector
+from .types import ConfigTypedDict
 from .utils import graphite_config_dict, shutdown
 
 
@@ -132,12 +133,13 @@ def main() -> None:
         if os.path.exists(config_filename_path):
             logging.info(f"reading custom metric from {config_filename_path}")
             with open(config_filename_path, "r") as config_file:
-                custom_metric_config: dict = yaml.load(config_file, Loader=yaml.FullLoader)
-            graphite.init_custom_metric(custom_metric_config)
-            REGISTRY.register(CustomMetricCollector(custom_metric_config, graphite))
+                custom_metric_config: ConfigTypedDict = yaml.load(config_file, Loader=yaml.FullLoader)
+            custom_metric_collector: CustomMetricCollector = CustomMetricCollector(custom_metric_config, graphite)
+            REGISTRY.register(custom_metric_collector)
 
             scheduler: BackgroundScheduler = BackgroundScheduler()
-            for job, interval, name in graphite.gen_job(custom_metric_config):
+            for job, interval, name in custom_metric_collector.gen_job(custom_metric_config):
+                job()
                 scheduler.add_job(job, "interval", seconds=interval, name=name)
             logging.getLogger("apscheduler.executors.default").setLevel(getattr(logging, apscheduler_log_level))
             scheduler.start()

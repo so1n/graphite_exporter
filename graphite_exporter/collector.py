@@ -1,6 +1,5 @@
 import logging
 import random
-import re
 from copy import deepcopy
 from functools import partial
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
@@ -9,8 +8,8 @@ import requests  # type: ignore
 from prometheus_client.core import GaugeMetricFamily
 from requests.adapters import HTTPAdapter  # type: ignore
 
-from .types import GraphiteResponseType
-from .utils import graphite_config_dict
+from .types import ConfigTypedDict, GlobalConfigTypedDict, GraphiteResponseType, MetricConfigTypedDict, MetricTypedDict
+from .utils import graphite_config_dict, label_handle
 
 
 class Graphite(object):
@@ -43,85 +42,13 @@ class Graphite(object):
     def gen_host(self) -> str:
         return f"http://{random.choice(self._ip_list)}:{self._port}"
 
-    def init_custom_metric(self, config: dict) -> None:
-        global_config: dict = config["global"]
-        base_url_path: str = "/render?format=json"
-        for metric_dict in config["metrics"]:
-            name: str = metric_dict["name"]
-            metric: str = metric_dict["metric"]
-            _from: str = metric_dict.get("from", global_config["from"])
-            until: str = metric_dict.get("until", global_config["until"])
-            url_path: str = base_url_path + f"&from={_from}&until={until}&target={metric}"
-            logging.info(f"gen custom metric. name:{name} url:{url_path}")
-            self._url_dict[name] = url_path
-            self.custom_metric_dict[name] = {}
-
-    @staticmethod
-    def label_handle(name: str, target: str, metric_label_dict: dict) -> dict:
-        label_dict: dict = {}
-        target_info_list: List[str] = target.split(".")
-        for label_key, label_value in metric_label_dict.items():
-            if "${" in label_value:
-                label_match: List[str] = re.findall(r"\${\d*}", label_value)
-                if not label_match:
-                    logging.error(f"name:{name} key:{label_key} match {label_value} fail")
-                    continue
-
-                for label in label_match:
-                    index: int = int(label[2:-1])
-                    label_value = label_value.replace(label, target_info_list[index])
-                label_dict[label_key] = label_value
-            else:
-                label_dict[label_key] = label_value
-        return label_dict
-
-    def gen_job(self, config: Dict[str, Any]) -> Generator[Tuple, Any, Any]:
-        for metric_config_dict in config["metrics"]:
-            _interval: str = metric_config_dict.get("interval", config["global"]["interval"])
-            try:
-                interval: int = int(_interval)
-            except Exception:
-                interval = int(_interval[:-1])
-                unit = _interval[-1]
-                if unit == "s":
-                    pass
-                elif unit == "m":
-                    interval = interval * 60
-                elif unit == "h":
-                    interval = interval * 60 * 60
-            yield (
-                partial(self.get_metric, metric_config_dict),
-                interval,
-                metric_config_dict["name"],
-            )
-
-    def get_metric(self, metric_config_dict: dict) -> None:
-        name: str = metric_config_dict["name"]
-        url: str = self.gen_host() + self._url_dict[name]
-        resp: requests.Response = self.session.get(url)
+    def request(self, metric_url_path: str, timeout: Optional[int] = None) -> GraphiteResponseType:
+        resp: requests.Response = self.session.get(self.gen_host() + metric_url_path, timeout=timeout)
         if not resp.ok:
-            logging.error(f"can't access graphite, status:{resp.status_code}")
-            return
-        for target_dict in resp.json():
-            target: str = target_dict["target"]
-            last_datapoint: Tuple[int, int] = target_dict["datapoints"][-1]
-            value, timestamp = last_datapoint
-            # TODO value为空的处理
-            if value is None:
-                continue
-
-            self.custom_metric_dict[name] = {}
-            key_list: List[str] = []
-            value_list: List[int] = []
-            for label_key, label_value in self.label_handle(name, target, metric_config_dict["labels"]).items():
-                key_list.append(label_key)
-                value_list.append(label_value)
-            self.custom_metric_dict[name][target] = {
-                "value": value,
-                "label_key_list": key_list,
-                "label_value_list": value_list,
-                "doc": metric_config_dict["doc"],
-            }
+            logging.error(f"can't access graphite:{metric_url_path}, status:{resp.status_code} content:{resp.text}")
+            raise StopIteration()
+        resp_result: GraphiteResponseType = resp.json()
+        return resp_result
 
 
 class GraphiteMetricCollector(object):
@@ -139,42 +66,91 @@ class GraphiteMetricCollector(object):
             base_url += f'&target={metric_dict["metric"]}'
         self.graphite_metric_url_path = base_url
 
-    def get_graphite_metric(self) -> Generator[dict, Any, Any]:
-        resp: requests.Response = self.graphite.session.get(self.graphite.gen_host() + self.graphite_metric_url_path)
-        if not resp.ok:
-            logging.error(f"can't access graphite, status:{resp.status_code} content:{resp.text}")
-            raise StopIteration()
-        resp_result: GraphiteResponseType = resp.json()
-        for target_dict in resp_result:
+    def get_graphite_metric(self) -> Generator[MetricTypedDict, Any, Any]:
+        for target_dict in self.graphite.request(self.graphite_metric_url_path):
             target: str = target_dict["target"]
-            metric_dict: dict = deepcopy(graphite_config_dict["metrics"][target])
+            metric_dict: MetricTypedDict = deepcopy(graphite_config_dict["metrics"][target])
             metric_dict["value"] = target_dict["datapoints"][-1][0]  # Only the last one is needed
             metric_dict["name"] = target
             yield metric_dict
 
     def collect(self) -> GaugeMetricFamily:
         for metric_dict in self.get_graphite_metric():
-            g: GaugeMetricFamily = GaugeMetricFamily(
+            yield GaugeMetricFamily(
                 self.prefix + "_" + metric_dict["name"],
                 metric_dict["doc"],
                 value=metric_dict["value"],
             )
-            yield g
 
 
 class CustomMetricCollector(object):
-    def __init__(self, config: Dict[str, Any], graphite: Graphite) -> None:
+    def __init__(self, config: ConfigTypedDict, graphite: Graphite) -> None:
         self.prefix: str = config["global"].get("prefix", "graphite")
-        self.custom_metric_dict: Dict[str, Any] = graphite.custom_metric_dict
+        self.graphite: Graphite = graphite
+        self.custom_metric_dict: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    def gen_job(self, config: ConfigTypedDict) -> Generator[Tuple, Any, Any]:
+        base_url_path: str = "/render?format=json"
+        global_config: GlobalConfigTypedDict = config["global"]
+        for metric_config_dict in config["metrics"]:
+            _interval: str = metric_config_dict.get("interval", config["global"]["interval"])
+            try:
+                interval: int = int(_interval)
+            except Exception:
+                interval = int(_interval[:-1])
+                unit = _interval[-1]
+                if unit == "s":
+                    pass
+                elif unit == "m":
+                    interval = interval * 60
+                elif unit == "h":
+                    interval = interval * 60 * 60
+            metric: str = metric_config_dict["metric"]
+            _from: str = metric_config_dict.get("from", global_config["from"])
+            until: str = metric_config_dict.get("until", global_config["until"])
+            url_path: str = base_url_path + f"&from={_from}&until={until}&target={metric}"
+
+            name: str = metric_config_dict["name"]
+            if "timeout" not in metric_config_dict:
+                metric_config_dict["timeout"] = global_config.get("timeout", None)
+            logging.info(f"gen custom metric. name:{name} url:{url_path}")
+            yield (
+                partial(self.get_metric, metric_config_dict, url_path),
+                interval,
+                metric_config_dict["name"],
+            )
+
+    def get_metric(self, metric_config_dict: MetricConfigTypedDict, url_path: str) -> None:
+        name: str = metric_config_dict["name"]
+        self.custom_metric_dict[name] = {}
+
+        for target_dict in self.graphite.request(url_path):
+            target: str = target_dict["target"]
+            value: Optional[float] = None
+            for value, timestamp in reversed(target_dict["datapoints"]):
+                if value:
+                    break
+
+            key_list: List[str] = []
+            value_list: List[int] = []
+            for label_key, label_value in label_handle(name, target, metric_config_dict["labels"]).items():
+                key_list.append(label_key)
+                value_list.append(label_value)
+            self.custom_metric_dict[name][target] = {
+                "value": value,
+                "label_key_list": key_list,
+                "label_value_list": value_list,
+                "doc": metric_config_dict["doc"],
+            }
 
     def collect(self) -> GaugeMetricFamily:
-        query_metrics = self.custom_metric_dict.copy()
+        query_metrics = deepcopy(self.custom_metric_dict)
         for name, metric_dict in query_metrics.items():
             g: Optional[GaugeMetricFamily] = None
             for target, target_dict in metric_dict.items():
                 if not g:
                     g = GaugeMetricFamily(
-                        self.prefix + "_" + name,
+                        self.prefix + "_" + name.replace("-", "_"),
                         target_dict["doc"],
                         labels=target_dict["label_key_list"],
                     )

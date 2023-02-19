@@ -1,10 +1,11 @@
 import functools
 import logging
 import os
+import re
 import signal
 import sys
 import time
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, List, Tuple
 
 graphite_config_dict: dict = {
     "global": {"from": "-2min", "prefix": "graphite", "until": "-1min"},
@@ -35,6 +36,25 @@ graphite_config_dict: dict = {
         },
     },
 }
+
+
+def label_handle(name: str, target: str, metric_label_dict: dict) -> dict:
+    label_dict: dict = {}
+    target_info_list: List[str] = target.split(".")
+    for label_key, label_value in metric_label_dict.items():
+        if "${" in label_value:
+            label_match: List[str] = re.findall(r"\${\d*}", label_value)
+            if not label_match:
+                logging.error(f"name:{name} key:{label_key} match {label_value} fail")
+                continue
+
+            for label in label_match:
+                index: int = int(label[2:-1])
+                label_value = label_value.replace(label, target_info_list[index])
+            label_dict[label_key] = label_value
+        else:
+            label_dict[label_key] = label_value
+    return label_dict
 
 
 def shutdown(shutdown_signals: Tuple[signal.Signals, ...] = (signal.SIGINT, signal.SIGTERM)) -> Callable:

@@ -6,23 +6,23 @@ global:
   timeout: 10
 
 metrics:
-  - metric: example.*.*.user
+  - metric: stats.example.*.*.user
     name: user_cnt
     doc: user cnt
     labels:
-      service: ${0}
-      app: ${1}
-      project: ${2}
+      service: ${3}
+      app: ${2}
+      project: ${1}
 
-  - metric: example.*.*.dau
-    name: dau
-    doc: dau
+  - metric: stats.example.*.*.dau
+    name: service-dau
+    doc: service-dau
     labels:
-      service_projece: ${0}-${2}
-      app: ${1}
-      project: ${2}
+      service_project: ${3}-${1}
+      app: ${2}
+      project: ${1}
 
-  - metric: aliasByMetric(example.*.*.dau)  # graphite return metric name: dau
+  - metric: aliasByMetric(stats.example.*.*.dau)  # graphite return metric name: dau
     name: dau
     doc: dau
     labels:

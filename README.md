@@ -23,11 +23,14 @@ usage: __main__.py [-h] [-i IP] [-c CONFIG] [-p PORT] [-P LISTEN_PORT]
 optional arguments:
   -h, --help            show this help message and exit
   -i IP, --ip IP        graphite web ip. eg: 127.0.0.1 or 127.0.0.1,127.0.0.2
+                        _!_If -i is set parameter 'ip' in config file will be ignored
   -c CONFIG, --config CONFIG
                         Metric config path
   -p PORT, --port PORT  graphite web port
+                        _!_If -p is set parameter 'port' in config file will be ignored
   -P LISTEN_PORT, --listen_port LISTEN_PORT
                         graphite exporter listen port
+                        _!_If -P is set parameter 'listen_port' in config file will be ignored
   -l LOG_LEVEL, --log_level LOG_LEVEL
                         log level
   -L APSCHEDULER_LOG_LEVEL, --apscheduler_log_level APSCHEDULER_LOG_LEVEL
@@ -65,9 +68,12 @@ An example configuration:
 global:
   prefix: graphite      # prometheus metric prefix
   interval: 1m          # collection data interval
-  from: -1min           # graphite web requests param. learn more: https://graphite.readthedocs.io/en/latest/render_api.html#from-until
+  from: -90s            # graphite web requests param. learn more: https://graphite.readthedocs.io/en/latest/render_api.html#from-until
   until: now            # graphite web requests param. learn more: https://graphite.readthedocs.io/en/latest/render_api.html#from-until
   timeout: 10           # requests timeout
+  ip: 192.168.215.170   # graphite web ip
+  port: 5000            # graphite web port
+  listen_port: 9108     # graphite exporter listen port
 
 metrics:
   - metric: example.*.*.user    # graphite metric

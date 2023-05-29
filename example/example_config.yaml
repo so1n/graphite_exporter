@@ -1,9 +1,12 @@
 global:
   prefix: graphite
   interval: 1m
-  from: -1min
+  from: -90s
   until: now
   timeout: 10
+  ip: 192.168.215.170
+  port: 5000
+  listen_port: 9108
 
 metrics:
   - metric: stats.example.*.*.user

@@ -21,12 +21,13 @@ def main() -> None:
     parser.add_argument(
         "-i",
         "--ip",
-        default="127.0.0.1",
+        const="127.0.0.1",
+        nargs="?",
         help="graphite web ip. eg: 127.0.0.1 or 127.0.0.1,127.0.0.2",
     )
     parser.add_argument("-c", "--config", default="", help="Metric config path")
-    parser.add_argument("-p", "--port", default=5000, help="graphite web port")
-    parser.add_argument("-P", "--listen_port", default=9108, help="graphite exporter listen port")
+    parser.add_argument("-p", "--port", const=5000, nargs="?", help="graphite web port")
+    parser.add_argument("-P", "--listen_port", const=9108, nargs="?", help="graphite exporter listen port")
     parser.add_argument("-l", "--log_level", default="INFO", help="log level")
     parser.add_argument(
         "-L",
@@ -80,10 +81,13 @@ def main() -> None:
     )
 
     args, unknown = parser.parse_known_args()
-    ip_list: List[str] = args.ip.split(",")
-    port: int = int(args.port)
-    listen_port: int = int(args.listen_port)
     config_filename_path: str = args.config
+    if args.ip:
+        ip_list: List[str] = args.ip.split(",")
+    if args.port:
+        port: int = int(args.port)
+    if args.listen_port:
+        listen_port: int = int(args.listen_port)
     log_level: str = args.log_level
     apscheduler_log_level: str = args.apscheduler_log_level
     system_metric: List[str] = args.system_metric.split(",")
@@ -93,6 +97,8 @@ def main() -> None:
     request_pool_block: bool = bool(args.request_pool_block)
     request_timeout: int = int(args.request_timeout)
     request_max_retries: int = int(args.request_max_retries)
+
+    print(args)
 
     basic_config: Dict[str, Any] = dict(
         format="[%(asctime)s %(levelname)s %(process)d] %(message)s",
@@ -111,21 +117,6 @@ def main() -> None:
         del basic_config["datefmt"]
     logging.basicConfig(**basic_config)
 
-    graphite: Graphite = Graphite(
-        ip_list=ip_list,
-        port=port,
-        pool_block=request_pool_block,
-        pool_maxsize=request_pool_maxsize,
-        pool_connections=request_pool_connections,
-        timeout=request_timeout,
-        max_retries=request_max_retries,
-    )
-
-    if system_metric:
-        logging.info(f"init system metric:{system_metric}")
-        REGISTRY.register(GraphiteMetricCollector(graphite, set(system_metric)))
-        logging.info(f"registry system metric:{system_metric} success")
-
     if config_filename_path:
         # Don't need to think about Windows
         if not config_filename_path.startswith("/"):
@@ -134,6 +125,26 @@ def main() -> None:
             logging.info(f"reading custom metric from {config_filename_path}")
             with open(config_filename_path, "r") as config_file:
                 custom_metric_config: ConfigTypedDict = yaml.load(config_file, Loader=yaml.FullLoader)
+            
+            try: ip_list
+            except NameError: ip_list: List[str] = custom_metric_config["global"]["ip"].split(",")
+            try: port
+            except NameError: port: int = custom_metric_config["global"]["port"]
+            
+            graphite: Graphite = Graphite(
+                ip_list=ip_list,
+                port=port,
+                pool_block=request_pool_block,
+                pool_maxsize=request_pool_maxsize,
+                pool_connections=request_pool_connections,
+                timeout=request_timeout,
+                max_retries=request_max_retries,
+            )
+            if system_metric:
+                logging.info(f"init system metric:{system_metric}")
+                REGISTRY.register(GraphiteMetricCollector(graphite, set(system_metric)))
+                logging.info(f"registry system metric:{system_metric} success")
+
             custom_metric_collector: CustomMetricCollector = CustomMetricCollector(custom_metric_config, graphite)
             REGISTRY.register(custom_metric_collector)
 
@@ -146,6 +157,8 @@ def main() -> None:
         else:
             logging.error(f"reading custom metric from {config_filename_path}")
 
+    try: listen_port
+    except NameError: listen_port: int = custom_metric_config["global"]["listen_port"]
     logging.info("Starting server...")
     start_http_server(listen_port)
     logging.info(f"Server started on port {listen_port}")

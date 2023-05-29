@@ -16,7 +16,7 @@ python feeding_carbon
 
 Step 3, open a new terminal (or tab) and go back to the project directory(./graphite_exporter),and invoke the command to run`graphite_exporter`:
 ```bash
-python -m graphite_exporter -i 127.0.0.1 -p 8080 -c example/example_config.yaml
+python -m graphite_exporter -c example/example_config.yaml
 ```
 At last，open a new terminal (or tab) view the output via the 'curl' command:
 ```bash

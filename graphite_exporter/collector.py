@@ -47,7 +47,15 @@ class Graphite(object):
         if not resp.ok:
             logging.error(f"can't access graphite:{metric_url_path}, status:{resp.status_code} content:{resp.text}")
             raise StopIteration()
-        resp_result: GraphiteResponseType = resp.json()
+        resp_result_1 = resp.json()
+        for i in range(len(resp_result_1)):
+            is_none = True
+            for j in range(len(resp_result_1[i]['datapoints'])):
+                if resp_result_1[i]['datapoints'][j][0] != None:
+                    is_none = False
+            if is_none:
+                resp_result_1[i]['datapoints'][-1][0] = -1 # If value if Null set it to '-1'
+        resp_result: GraphiteResponseType = resp_result_1
         return resp_result
 
 

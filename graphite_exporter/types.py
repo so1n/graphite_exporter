@@ -46,6 +46,9 @@ GlobalConfigTypedDict = TypedDict(
         "from": str,
         "until": str,
         "timeout": int,
+        "ip": str,
+        "port": int,
+        "listen_port": int,
     },
 )
 

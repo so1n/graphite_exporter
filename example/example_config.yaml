@@ -4,8 +4,8 @@ global:
   from: -90s
   until: now
   timeout: 10
-  ip: 192.168.215.170
-  port: 5000
+  ip: 127.0.0.1
+  port: 8080
   listen_port: 9108
 
 metrics:
